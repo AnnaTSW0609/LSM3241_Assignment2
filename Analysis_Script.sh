@@ -83,28 +83,75 @@ do
 done
 
 # check if have one end mapped in yeast genome
-samtools view -f 4 -F 13 results/bam/A0192658N-sorted.bam > results/bam/itself_unmapped_filtered_1.bam 
-samtools view -f 8 -F 13 results/bam/A0192658N-sorted.bam > results/bam/mate_unmapped_filtered_2.bam 
-# filter both unmapped 
-# cannot filter 13 
+samtools view -S -b -f 4 -F 264 results/bam/A0192658N-sorted.bam > results/bam/trial.bam # one end mapped on the yeast genome, itself unmapped 
+samtools view -f 8 -F 260 results/bam/A0192658N-sorted.bam > results/bam/trial_subseq.bam # one end mapped on the yeast genome, its mate unmapped 
+ 
+# Merging the two bam files
+samtools merge results/bam/merged_unmapped.bam results/bam/trial.bam results/bam/trial_subseq.bam
 
-# command for bedtools to fastq 
-# https://bedtools.readthedocs.io/en/latest/content/tools/bamtofastq.html
-bedtools bamtofastq -i results/bam/itself_unmapped_filtered.bam -fq results/bam/itself_unmapped_filtered.fq
-bedtools bamtofastq -i results/bam/mate_unmapped_filtered.bam -fq results/bam/mate_unmapped_filtered.fq
+# convert the singlets back into fasq
 
+samtools sort -n results/bam/merged_unmapped.bam -o results/bam/merged_unmapped.qsort
 
-# check if these can be mapped to the transposome genome 
+bedtools bamtofastq -i results/bam/merged_unmapped.qsort \
+                      -fq results/trimmed/yeast_unmapped_01.fq \ # the yeast-unmapped are to be mapped to the transposome 
+                      -fq2 results/trimmed/yeast_unmapped_02.fq
 
-for file in results/bam/*1.fq ; do
-    SRR=$(basename $file _1.fq)
+# mapping the singlets.fastq to the transposome genome
+
+for file in results/trimmed/*unmapped_01.fq ; do
+    SRR=$(basename $file _unmapped_01.fq)
     echo running $SRR
     bowtie2 -x ty5_6p \
          --very-fast -p 4\
-         -1 results/bam/itself_unmapped_filtered.fq \  
-         -2 results/bam/mate_unmapped_filtered.fq \
+         -1 results/trimmed/${SRR}_unmapped_01.fq \
+         -2 results/trimmed/${SRR}_unmapped_02.fq \
          -S results/sam/${SRR}.sam
 done
+
+for file in results/sam/*.sam 
+do
+	SRR=$(basename $file .sam)
+                 echo $SRR
+                 samtools view -S -b results/sam/${SRR}.sam > results/bam/${SRR}-aligned.bam
+done
+
+for file in results/bam/*-aligned.bam 
+do
+	SRR=$(basename $file -aligned.bam)
+                 echo $SRR
+                 samtools sort results/bam/${SRR}-aligned.bam -o results/bam/${SRR}-sorted.bam
+done
+
+# view the reads that are BOTH singly mapped to the yeast genome and singly mapped to the transposome genome 
+samtools view -S -b -f 4 -F 264 results/bam/yeast-sorted.bam > results/bam/transposome_01.bam # itself unmapped 
+samtools view -S -b -f 8 -F 260 results/bam/yeast-sorted.bam > results/bam/transposome_02.bam # mate unmapped
+
+bedtools bamtobed -i results/bam/transposome_02.bam > results/bed/transposome_02.bed
+
+# Merging the two bam files
+samtools merge results/bam/merged_trans_unmapped.bam results/bam/transposome_01.bam results/bam/transposome_02.bam # this one are the ones mapped to the transposomes 
+
+# convert the singlets back into fasq
+
+samtools sort -n results/bam/merged_trans_unmapped.bam -o results/bam/merged_trans_unmapped.qsort
+
+bedtools bamtofastq -i results/bam/merged_trans_unmapped.qsort \
+                      -fq results/trimmed/trans_unmapped_01.fq \ 
+                      -fq2 results/trimmed/trans_unmapped_02.fq
+
+# then map these reads to the yeast genome again (running the sam-generating code again)
+
+for file in results/trimmed/*s_unmapped_01.fq ; do
+    SRR=$(basename $file ns_unmapped_01.fq)
+    echo running $SRR
+    bowtie2 -x sacCer3 \
+         --very-fast -p 4\
+         -1 results/trimmed/${SRR}ns_unmapped_01.fq \
+         -2 results/trimmed/${SRR}ns_unmapped_02.fq \
+         -S results/sam/${SRR}.sam
+done
+
 for file in results/sam/*.sam 
 do
 	SRR=$(basename $file .sam)
@@ -121,3 +168,8 @@ done
 
 
 
+samtools view -S -b -F 4 results/bam/tra-sorted.bam > results/bam/tra-sorted_filtered.bam 
+
+# produce bed files for those that are singly mapped to the yeast AND with its mate singly mapped to the transposome 
+mkdir results/bed
+bedtools bamtobed -i results/bam/tra-sorted_filtered.bam  > results/bed/tra-sorted_filtered.bed #succeed!!! need the headers!!!!!
