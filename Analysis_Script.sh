@@ -1,6 +1,6 @@
-""" Analysis script used for generating files for Assignement 2"""
-""" Raw data files were downloaded as provided from IVLE and were originally in the data folder"""
-""" File names had been changed after they are generated for clarity (name changes specified in comments."""
+# Analysis script used for generating files for Assignement 2
+# Raw data files were downloaded as provided from IVLE and were originally in the data folder
+# File names had been changed after they are generated for clarity (name changes specified in comments.
 
 # data preprocessing
 
@@ -39,7 +39,7 @@ mkdir -p results/orphaned
 for file in data/*_1.fq.gz; do
     SRR=$(basename $file _1.fq.gz)
     echo working on $SRR
-    Trimmomatic PE data/${SRR}_1.fq.gz data/${SRR}_2.fq.gz \
+    TrimmomaticPE data/${SRR}_1.fq.gz data/${SRR}_2.fq.gz \
                   results/trimmed/${SRR}_1.trim.fq.gz results/orphaned/${SRR}_1.untrim.fq.gz \
                   results/trimmed/${SRR}_2.trim.fq.gz results/orphaned/${SRR}_2.untrim.fq.gz \
                   SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15 
@@ -53,8 +53,9 @@ mkdir -p data/genome
 mkdir -p results/sam
 mkdir -p results/bam
 cd data
-mv sacCer3.fa genome
+mv sacCer3.fa genome # originally in the data folder 
 mv ty5_6p.fa genome
+cd .. # move back to the parent folder 
 bowtie2-build data/genome/sacCer3.fasta data/genome/sacCer3 # need to change fa to fasta
 bowtie2-build data/genome/ty5_6p.fasta data/genome/ty5_6p
 
@@ -62,7 +63,7 @@ bowtie2-build data/genome/ty5_6p.fasta data/genome/ty5_6p
 export BOWTIE2_INDEXES=$(pwd)/data/genome
 
 # mapping to the yeast genome 
-for file in results/trimmed/*1.trim.fq.gz ; do
+for file in results/trimmed/*_1.trim.fq.gz ; do
     SRR=$(basename $file _1.trim.fq.gz)
     echo running $SRR
     bowtie2 -x sacCer3 \
@@ -71,6 +72,7 @@ for file in results/trimmed/*1.trim.fq.gz ; do
          -2 results/trimmed/${SRR}_2.trim.fq.gz \
          -S results/sam/${SRR}.sam
 done
+# ENDS HERE
 for file in results/sam/*.sam; 
 do
 	SRR=$(basename $file .sam)
@@ -86,8 +88,8 @@ do
 done
 
 # check if have one end mapped in yeast genome
-samtools view -S -b -f 4 -F 264 results/bam/A0192658N-sorted.bam > results/bam/trial.bam # its mate mapped to the yeast genome, itself unmapped 
-samtools view -f 8 -F 260 results/bam/A0192658N-sorted.bam > results/bam/trial_subseq.bam # itself mapped to the yeast genome, its mate unmapped
+samtools view -h -f 4 -F 264 results/bam/A0192658N-sorted.bam > results/bam/trial.bam # its mate mapped to the yeast genome, itself unmapped 
+samtools view -h -f 8 -F 260 results/bam/A0192658N-sorted.bam > results/bam/trial_subseq.bam # itself mapped to the yeast genome, its mate unmapped
  
 # Merging the two bam files
 samtools merge results/bam/merged_unmapped.bam results/bam/trial.bam results/bam/trial_subseq.bam
@@ -97,7 +99,7 @@ samtools merge results/bam/merged_unmapped.bam results/bam/trial.bam results/bam
 samtools sort -n results/bam/merged_unmapped.bam -o results/bam/merged_unmapped.qsort
 
 bedtools bamtofastq -i results/bam/merged_unmapped.qsort \
-                      -fq results/trimmed/yeast_unmapped_01.fq \ # the yeast-unmapped are to be mapped to the transposome 
+                      -fq results/trimmed/yeast_unmapped_01.fq \ 
                       -fq2 results/trimmed/yeast_unmapped_02.fq
 
 # mapping the singlets.fastq to the transposon sequence 
@@ -127,10 +129,8 @@ do
 done
 
 # view the reads that are BOTH singly mapped to the yeast genome and singly mapped to the transposon sequence 
-samtools view -S -b -f 4 -F 264 results/bam/yeast-sorted.bam > results/bam/transposome_01.bam # one end mapped on the transposon sequence, itself unmapped  
-samtools view -S -b -f 8 -F 260 results/bam/yeast-sorted.bam > results/bam/transposome_02.bam # itself mapped to the transposon sequence, its mate unmapped 
-
-bedtools bamtobed -i results/bam/transposome_02.bam > results/bed/transposome_02.bed
+samtools view -h -f 4 -F 264 results/bam/yeast-sorted.bam > results/bam/transposome_01.bam # one end mapped on the transposon sequence, itself unmapped  
+samtools view -h -f 8 -F 260 results/bam/yeast-sorted.bam > results/bam/transposome_02.bam # itself mapped to the transposon sequence, its mate unmapped 
 
 # Merging the two bam files
 samtools merge results/bam/merged_trans_unmapped.bam results/bam/transposome_01.bam results/bam/transposome_02.bam # this one are the ones mapped to the transposons 
@@ -164,13 +164,10 @@ for file in results/bam/*-aligned.bam
 do
 	SRR=$(basename $file -aligned.bam)
                  echo $SRR
-                 samtools sort results/bam/${SRR}-aligned.bam -o results/bam/${SRR}-sorted.bam
+                 samtools sort results/bam/${SRR}-aligned.bam -o results/bam/${SRR}-sorted.bam # resulting in a bam file containing all the singlets we need 
 done
-
-
-# obtain for those that are singly mapped to the yeast AND with its mate singly mapped to the transposon
-samtools view -S -b -F 4 -F 264 results/bam/tra-sorted.bam > results/bam/tra-sorted_filtered.bam 
+ 
 
 # convert it into bed file for creating custom track on the UCSC genome browser  
 mkdir results/bed
-bedtools bamtobed -i results/bam/tra-sorted_filtered.bam  > results/bed/tra-sorted_filtered.bed #succeed!!! need the headers!!!!!
+bedtools bamtobed -i results/bam/tra-sorted.bam > results/bed/tra-sorted.bed # need the headers for conversion into bed file for uploading into the genome browser
