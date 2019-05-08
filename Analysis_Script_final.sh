@@ -92,7 +92,7 @@ samtools view -h -f 4 -F 264 results/bam/A0192658N-sorted.bam > results/bam/tria
 samtools view -h -f 8 -F 260 results/bam/A0192658N-sorted.bam > results/bam/trial_subseq.bam # itself mapped to the yeast genome, its mate unmapped
  
 # Merging the two bam files
-samtools merge results/bam/merged_unmapped.bam results/bam/trial.bam results/bam/trial_subseq.bam
+samtools merge results/bam/merged_unmapped.bam results/bam/trial.bam results/bam/trial_subseq.bam # Supplementary file 1
 
 # convert the singlets back into fasq
 
@@ -129,11 +129,15 @@ do
 done
 
 # view the reads that are BOTH singly mapped to the yeast genome and singly mapped to the transposon sequence 
-samtools view -h -f 4 -F 264 results/bam/yeast-sorted.bam > results/bam/transposome_01.bam # one end mapped on the transposon sequence, itself unmapped  
-samtools view -h -f 8 -F 260 results/bam/yeast-sorted.bam > results/bam/transposome_02.bam # itself mapped to the transposon sequence, its mate unmapped 
+samtools view -h -f 4 -F 264 results/bam/yeast-sorted.bam > results/bam/transposome_01.bam # one end mapped on the transposon sequence, itself unmapped  # Supplementary file 3
+samtools view -h -f 8 -F 260 results/bam/yeast-sorted.bam > results/bam/transposome_02.bam # itself mapped to the transposon sequence, its mate unmapped
 
-# Merging the two bam files
-samtools merge results/bam/merged_trans_unmapped.bam results/bam/transposome_01.bam results/bam/transposome_02.bam # this one are the ones mapped to the transposons 
+mkdir results/bed
+bedtools bamtobed -i results/bam/transposome_01.bam > results/bed/transposome_01.bed 
+# to obtain the bedfile that records the orientation of the reads mapped to the transposon genome 
+
+# Merging the two bam files # This is supplementary file 2
+samtools merge results/bam/merged_trans_unmapped.bam results/bam/transposome_01.bam results/bam/transposome_02.bam # this one are the ones singly mapped to the transposons 
 
 # convert the singlets back into fasq
 samtools sort -n results/bam/merged_trans_unmapped.bam -o results/bam/merged_trans_unmapped.qsort
@@ -169,5 +173,5 @@ done
  
 
 # convert it into bed file for creating custom track on the UCSC genome browser  
-mkdir results/bed
+
 bedtools bamtobed -i results/bam/tra-sorted.bam > results/bed/tra-sorted.bed # need the headers for conversion into bed file for uploading into the genome browser
